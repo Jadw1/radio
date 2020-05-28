@@ -1,6 +1,7 @@
 #include <iostream>
+#include "radio.h"
 
 int main() {
-    std::cout << "Hello, World!" << std::endl;
-    return 0;
+    Radio radio("waw02-03.ic.smcdn.pl", "8000");
+    radio.play("/t050-1.mp3", true);
 }
