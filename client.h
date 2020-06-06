@@ -36,7 +36,7 @@ private:
     void sendDiscover(struct sockaddr* sendAddress, socklen_t socklen);
     void setSocketOptions();
     void discoverProxies();
-    void connectToProxy(int i);
+    void connectToProxy(size_t i);
     void disconnectProxy(bool remove);
     void handleSockInput();
     void addProxy(RadioProxy& proxy);

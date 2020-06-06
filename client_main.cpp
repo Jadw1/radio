@@ -11,7 +11,7 @@ void printUsage() {
     exit(0);
 }
 
-void stopClient(int sig) {
+void stopClient(int sig __attribute__((unused))) {
     if(client) {
         client->stop();
     }

@@ -209,11 +209,11 @@ void TelnetController::printMenu(const std::vector<RadioProxy>& proxies, int sel
     }
 
     std::string response = constructMenu(proxies, selected);
-    int write_len = write(msg_fd.fd, response.c_str(), response.length());
+    ssize_t write_len = write(msg_fd.fd, response.c_str(), response.length());
     if(write_len < 0) {
         syserr("write");
     }
-    else if(write_len != response.length()) {
+    else if((size_t)write_len != response.length()) {
         fatal("partial write");
     }
 }

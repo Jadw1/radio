@@ -101,9 +101,12 @@ void Radio::sendRequest(const std::string& resource, bool metadata) const {
     request.append("\r\n");
     request.append("\r\n");
 
-    int res = write(sock, request.c_str(), request.length());
-    if(res != request.length()) {
-        syserr("write failed");
+    ssize_t res = write(sock, request.c_str(), request.length());
+    if(res < 0) {
+        syserr("write");
+    }
+    else if((size_t)res != request.length()) {
+        fatal("partial write");
     }
 
 }

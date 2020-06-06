@@ -62,7 +62,6 @@ void RadioClient::discoverProxies() {
     proxies.clear();
     requireRefresh = true;
     doDiscovery = true;
-    bool search = true;
     selected = -1;
 }
 
@@ -105,19 +104,19 @@ void sendKeepAlive(bool& work, int fd, std::mutex& mutex, struct sockaddr addr) 
 
     while(work) {
         mutex.lock();
-        int sendLen = sendto(fd, keepAlive, len, 0, &addr, addrLen);
+        ssize_t sendLen = sendto(fd, keepAlive, len, 0, &addr, addrLen);
         mutex.unlock();
 
         if(sendLen < 0)
             syserr("sendto");
-        else if(sendLen != len)
+        else if((size_t)sendLen != len)
             fatal("partial send");
 
         usleep(keepAliveInterval);
     }
 }
 
-void RadioClient::connectToProxy(int i) {
+void RadioClient::connectToProxy(size_t i) {
     if(i >= proxies.size())
         return;
     disconnectProxy(false);

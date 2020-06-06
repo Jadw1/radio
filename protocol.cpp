@@ -47,7 +47,7 @@ std::string getData(char* buffer, size_t len) {
     }
 
     uint16_t* tmp = (uint16_t*)buffer;
-    uint16_t dataLen = ntohs(tmp[1]);
+    size_t dataLen = (size_t)ntohs(tmp[1]);
 
     if(dataLen + 4 != len) {
         return "ERROR";

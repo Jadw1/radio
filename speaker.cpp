@@ -100,7 +100,7 @@ void Speaker::work() {
         ssize_t len = sendto(sock, msg.c_str(), msg.length(), 0, &it->first, sizeof(it->first));
         if(len < 0)
             syserr("sendto");
-        else if(len != msg.length())
+        else if((size_t)len != msg.length())
             fatal("partial send");
     }
 }
@@ -165,7 +165,7 @@ void Speaker::sendIam(const sockaddr &addr) {
     if(ret < 0) {
         syserr("sendto");
     }
-    else if(ret != len) {
+    else if((size_t)ret != len) {
         fatal("partial sendto");
     }
 }

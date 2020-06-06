@@ -12,7 +12,7 @@ void printUsage() {
     exit(0);
 }
 
-void stopRadio(int sig) {
+void stopRadio(int sig __attribute__((unused))) {
     if(radio) {
         radio->stopPlaying();
     }
