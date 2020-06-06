@@ -91,7 +91,17 @@ void Speaker::work() {
             continue;
         }
 
-        //send
+        std::string msg;
+        char header[4];
+        setHeader((uint16_t*)&header, 2, (isMetadata) ? METADATA : AUDIO, (uint16_t)buffer.size());
+        msg.append(header, 4);
+        msg.append(buffer);
+
+        ssize_t len = sendto(sock, msg.c_str(), msg.length(), 0, &it->first, sizeof(it->first));
+        if(len < 0)
+            syserr("sendto");
+        else if(len != msg.length())
+            fatal("partial send");
     }
 }
 

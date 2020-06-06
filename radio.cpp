@@ -161,13 +161,15 @@ bool Radio::parseHeaderLine(const std::string& line) {
     size_t pos;
     if((pos = line.find(delimiter)) != std::string::npos) {
         std::string key = line.substr(0, pos);
-        std::string value = line.substr(pos + 1, line.length() - 2);
+        std::string value = line.substr(pos + 1, line.length());
 
         /*
         //removing \r\n
         size_t len = value.length();
         value[len - 2] = value[len - 1] = '\0';
          */
+        value.pop_back();
+        value.pop_back();
 
         if(key == "icy-metaint") {
             metaint = std::stoi(value);
