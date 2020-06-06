@@ -29,11 +29,9 @@ void Speaker::connect(int port, int timeout, std::string address) {
         syserr("socket");
     }
 
-    if(address.empty()) {
-        listenBroadcast();
-    }
-    else {
+    if(!address.empty()) {
         listenMulticast(address);
+        //listenBroadcast();
     }
 
     struct sockaddr_in local_address;
@@ -57,7 +55,6 @@ void Speaker::listenBroadcast() {
 }
 
 void Speaker::listenMulticast(const std::string &address) {
-    struct ip_mreq ip_mreq;
     ip_mreq.imr_interface.s_addr = htonl(INADDR_ANY);
     if(inet_aton(address.c_str(), &ip_mreq.imr_multiaddr) == 0) {
         fatal("inet_aton - invalid multicast address\n");
@@ -66,6 +63,8 @@ void Speaker::listenMulticast(const std::string &address) {
     if(setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (void*)&ip_mreq, sizeof(ip_mreq)) < 0) {
         syserr("setsockopt");
     }
+
+    multicast = true;
 }
 
 void Speaker::work() {
@@ -172,4 +171,15 @@ void Speaker::sendIam(const sockaddr &addr) {
 
 void Speaker::setName(const std::string &name) {
     this->name = name;
+}
+
+void Speaker::disconnect() {
+    if(asProxy) {
+        if(multicast) {
+            if (setsockopt(sock, IPPROTO_IP, IP_DROP_MEMBERSHIP, (void*)&ip_mreq, sizeof ip_mreq) < 0) {
+                syserr("setsockopt");
+            }
+        }
+        close(sock);
+    }
 }

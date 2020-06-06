@@ -34,10 +34,8 @@ private:
     static void parseStatus(const std::string& line);
     bool parseHeaderLine(const std::string& line);
     size_t readStream(size_t len = buffLen);
-    void printAudio(size_t start, size_t len);
-    void printMetadata(size_t start, int len);
     int waitToRead();
-    void disconnect() const;
+    void disconnect();
 };
 
 #endif //RADIO_RADIO_H

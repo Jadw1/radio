@@ -23,13 +23,15 @@ public:
     void setName(const std::string& name);
     void play(char* buff, size_t start, size_t len, bool isMeta);
     void work();
+    void disconnect();
 
 private:
-    bool asProxy;
+    bool asProxy, multicast = false;
     std::string name;
     int sock;
     int timeout;
     struct pollfd fd;
+    struct ip_mreq ip_mreq;
     std::map<struct sockaddr, time_t, sockaddrComp> timeMap;
 
     std::string buffer;

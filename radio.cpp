@@ -210,8 +210,8 @@ int Radio::waitToRead() {
     return 0;
 }
 
-void Radio::disconnect() const {
-    std::cerr << "disconnecting\n";
+void Radio::disconnect() {
+    speaker.disconnect();
     close(sock);
 }
 
