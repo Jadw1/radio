@@ -20,6 +20,8 @@ enum key_pressed {
 
 enum client_action {
     DO_DISCOVER,
+    CONNECT,
+    REFRESH,
     NONE
 };
 
@@ -32,18 +34,20 @@ class TelnetController {
 public:
     TelnetController(int port);
 
-    client_action handleInput();
+    client_action handleInput(int* p);
     void printMenu(const std::vector<RadioProxy>& proxies);
+    void setSelected(int i);
 
 private:
     int port;
     int sock, msg_sock;
     work_mode mode;
     struct pollfd fd, msg_fd;
-    int timeout = 500;
+    int timeout = 10;
     int pos, maxPos;
+    int selected;
 
-    void listenToConnect();
+    client_action listenToConnect();
     client_action handle();
     void connectionLost();
 
