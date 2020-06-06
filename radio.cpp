@@ -9,55 +9,56 @@
 #include <cstring>
 #include <iostream>
 
-Radio::Radio(std::string address, std::string port) {
+Radio::Radio(const std::string& address, const std::string& port, int timeout): speaker("fdg", 234) {
     connectToRadio(address, port);
     metaint = 0;
+    this->timeout = timeout;
+    this->work = true;
 }
 
-void Radio::play(std::string resource, bool metadata) {
+void Radio::play(const std::string& resource, bool metadata) {
     sendRequest(resource, metadata);
     receiveHeader();
 
-    bool work = true;
     bool readMetadata = metaint > 0;
-    int toMeta = metaint, metaLen = 0;
+    size_t toMeta = metaint;
     while(work) {
-        ssize_t readLen = readStream();
+        int ret = waitToRead();
+        if(ret < 0) {
+            break;
+        }
 
         if(!readMetadata) {
-            printAudio(0, readLen);
+            size_t readLen = readStream();
+            speaker.play(buffer, 0, readLen, false);
         }
         else {
-            ssize_t pos = 0;
+            if(toMeta > 0) {
+                size_t len = std::min(toMeta, buffLen);
+                size_t readLen = readStream(len);
+                speaker.play(buffer, 0, readLen, false);
 
-            while(pos < readLen) {
-                // print metadata
-                if(metaLen > 0) {
-                    ssize_t len = std::min((ssize_t)metaLen, readLen - pos);
-                    printMetadata(pos, len);
+                toMeta -= readLen;
+            }
+            else {
+                readStream(1);
+                size_t metaLen = buffer[0] * 16;
+                toMeta = metaint;
 
-                    metaLen -= len;
-                    pos += len;
-                }
-                // receive metadata length
-                else if(toMeta == 0) {
-                    metaLen = buffer[pos++] * 16;
-                    toMeta = metaint;
-                }
-                // print audio
-                else {
-                    ssize_t len = std::min((ssize_t)toMeta, readLen - pos);
-                    printAudio(pos, len);
-
-                    pos += len;
-                    toMeta -= len;
-                }
+                if(metaLen == 0)
+                    continue;
+                readStream(metaLen);
+                speaker.play(buffer, 0, metaLen, true);
             }
         }
+
+        speaker.work();
     }
+
+    disconnect();
 }
 
-void Radio::connectToRadio(std::string address, std::string port) {
+void Radio::connectToRadio(const std::string& address, const std::string& port) {
     struct addrinfo addr_hints, *addr_result;
 
     memset(&addr_hints, 0, sizeof(struct addrinfo));
@@ -80,9 +81,13 @@ void Radio::connectToRadio(std::string address, std::string port) {
     if(connect(sock, addr_result->ai_addr, addr_result->ai_addrlen) < 0)
         syserr("connect");
     freeaddrinfo(addr_result);
+
+    fd.fd = sock;
+    fd.events = POLLIN;
+    fd.revents = 0;
 }
 
-void Radio::sendRequest(std::string resource, bool metadata) {
+void Radio::sendRequest(const std::string& resource, bool metadata) const {
     std::string request;
     request.append("GET ");
     request.append(resource);
@@ -105,6 +110,11 @@ void Radio::receiveHeader() {
     char* line;
     size_t len  = 0;
 
+    int ret = waitToRead();
+    if(ret < 0) {
+        disconnect();
+        return;
+    }
     if(getline(&line, &len, stream) < 0) {
         syserr("no status response / read error");
     }
@@ -113,8 +123,13 @@ void Radio::receiveHeader() {
 
     bool readHeader = true;
     while(readHeader) {
-        line = NULL;
+        line = nullptr;
         len = 0;
+        ret = waitToRead();
+        if(ret < 0) {
+            disconnect();
+            return;
+        }
         if(getline(&line, &len, stream) <= 0) {
             syserr("read error");
         }
@@ -126,52 +141,71 @@ void Radio::receiveHeader() {
     }
 }
 
-void Radio::parseStatus(std::string line) {
+void Radio::parseStatus(const std::string& line) {
     size_t pos = line.find("200");
     if(pos == std::string::npos) {
         syserr("status no OK\nreceived status: %.s", line.length(), line.c_str());
     }
 }
 
-bool Radio::parseHeaderLine(std::string line) {
-    if(line.compare("\r\n") == 0) {
+bool Radio::parseHeaderLine(const std::string& line) {
+    if(line == "\r\n") {
         return true;
     }
 
     std::string delimiter = ":";
-    size_t pos = 0;
+    size_t pos;
     if((pos = line.find(delimiter)) != std::string::npos) {
         std::string key = line.substr(0, pos);
-        std::string value = line.substr(pos + 1, line.length());
+        std::string value = line.substr(pos + 1, line.length() - 2);
 
+        /*
         //removing \r\n
         size_t len = value.length();
         value[len - 2] = value[len - 1] = '\0';
+         */
 
-        if(key.compare("icy-metaint") == 0) {
+        if(key == "icy-metaint") {
             metaint = std::stoi(value);
+        }
+        else if(key == "icy-name") {
+            name = value;
+            speaker.setName(name);
         }
     }
 
     return false;
 }
 
-ssize_t Radio::readStream() {
-    ssize_t len = read(sock, buffer, buffLen);
-    if(len < 0) {
+size_t Radio::readStream(size_t len) {
+    ssize_t readLen = read(sock, buffer, len);
+    if(readLen < 0) {
         syserr("read error");
     }
 
-    return len;
+    return readLen;
 }
 
-void Radio::printAudio(ssize_t start, ssize_t len) {
-    for(ssize_t i = start; i < len; i++) {
-        std::cout << buffer[i];
+int Radio::waitToRead() {
+    int ret = poll(&fd, 1, timeout * 1000);
+    if(ret == 0) {
+        std::cerr << "timeout\n";
+        return -1;
     }
+    else if(ret < 0 && errno == EINTR) {
+        return -2;
+    }
+    else if(ret < 0) {
+        syserr("poll error");
+    }
+    return 0;
 }
 
-void Radio::printMetadata(ssize_t start, int len) {
-    char* metadata = buffer + start;
-    fprintf(stderr, "%.*s", len, metadata);
+void Radio::disconnect() const {
+    std::cerr << "disconnecting\n";
+    close(sock);
+}
+
+void Radio::stopPlaying() {
+    work = false;
 }
