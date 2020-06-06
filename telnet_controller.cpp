@@ -7,6 +7,7 @@ TelnetController::TelnetController(int port) {
     this->port = port;
     pos = 0;
     maxPos = 2;
+    selected = -1;
 
     sock = socket(PF_INET, SOCK_STREAM, 0);
     if (sock < 0)
@@ -31,29 +32,30 @@ TelnetController::TelnetController(int port) {
     mode = LISTEN;
 }
 
-client_action TelnetController::handleInput() {
+client_action TelnetController::handleInput(int* p) {
     client_action action = NONE;
 
     switch (mode) {
         case LISTEN:
-            listenToConnect();
+            action = listenToConnect();
             break;
         case WORK:
             action = handle();
             break;
     }
 
+    *p = pos - 1;
     return action;
 }
 
-void TelnetController::listenToConnect() {
+client_action TelnetController::listenToConnect() {
     fd.revents = 0;
     int ret = poll(&fd, 1, timeout);
     if(ret < 0) {
         syserr("poll");
     }
     else if(ret == 0) {
-        return;
+        return NONE;
     }
 
     struct sockaddr_in client_address;
@@ -88,6 +90,8 @@ void TelnetController::listenToConnect() {
 
     pos = 0;
     mode = WORK;
+
+    return REFRESH;
 }
 
 client_action TelnetController::handle() {
@@ -114,16 +118,22 @@ client_action TelnetController::handle() {
     client_action action = NONE;
     switch (parseInput(buff, read_len)) {
         case UP:
-            if(pos > 0)
+            if(pos > 0) {
+                action = REFRESH;
                 pos--;
+            }
             break;
         case DOWN:
-            if(pos < maxPos - 1)
+            if(pos < maxPos - 1) {
+                action = REFRESH;
                 pos++;
+            }
             break;
         case ENTER:
             if(pos == 0)
                 action = DO_DISCOVER;
+            else if(pos > 0 && pos < maxPos - 1)
+                action = CONNECT;
             break;
         case OTHER:
             break;
@@ -138,7 +148,7 @@ void TelnetController::connectionLost() {
 }
 
 key_pressed TelnetController::parseInput(char *input, size_t len) {
-    if(len == 1 && input[0] == 13)
+    if(len == 2 && input[0] == 13 && input[1] == 0)
         return ENTER;
     else if(len == 3) {
         if(input[0] != 27 && input[1] != 91)
@@ -178,6 +188,9 @@ std::string TelnetController::constructMenu(const std::vector<RadioProxy>& proxi
         }
         else {
             menu.append(proxies[i-1].name);
+            if(selected == i-1) {
+                menu.append(" *");
+            }
         }
 
         menu.append(newLine);
@@ -199,4 +212,8 @@ void TelnetController::printMenu(const std::vector<RadioProxy>& proxies) {
     else if(write_len != response.length()) {
         fatal("partial write");
     }
+}
+
+void TelnetController::setSelected(int i) {
+    selected = i;
 }
