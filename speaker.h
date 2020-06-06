@@ -17,8 +17,8 @@ struct sockaddrComp {
 
 class Speaker {
 public:
-    Speaker(const std::string& name, int timeout);
-    void connect(int port, std::string address = "");
+    Speaker();
+    void connect(int port, int timeout, std::string address);
 
     void setName(const std::string& name);
     void play(char* buff, size_t start, size_t len, bool isMeta);

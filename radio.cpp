@@ -9,11 +9,15 @@
 #include <cstring>
 #include <iostream>
 
-Radio::Radio(const std::string& address, const std::string& port, int timeout): speaker("fdg", 234) {
+Radio::Radio(const std::string& address, const std::string& port, int timeout) {
     connectToRadio(address, port);
     metaint = 0;
     this->timeout = timeout;
     this->work = true;
+}
+
+Radio::Radio(const std::string& address, const std::string& port, int timeout, int speakerPort, const std::string& multicast, int T) : Radio(address, port, timeout) {
+    speaker.connect(speakerPort, T, multicast);
 }
 
 void Radio::play(const std::string& resource, bool metadata) {

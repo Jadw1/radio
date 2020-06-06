@@ -20,9 +20,9 @@ void stopRadio(int sig) {
 }
 
 int main(int argc, char* argv[]) {
-    std::string host, resource, port;
-    int timeout = 5, opt;
-    bool metadata = false;
+    std::string host, resource, port, multiAddress;
+    int timeout = 5, opt, T = 5, udpPort;
+    bool metadata = false, beProxy = false;
     sigset_t blockMask;
     struct sigaction action;
 
@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
         syserr("sigaction");
     }
 
-    while((opt = getopt(argc, argv, "h:r:p:m:t:")) !=  -1) {
+    while((opt = getopt(argc, argv, "h:r:p:m:t:P:B:T:")) !=  -1) {
         switch (opt) {
             case 'h':
                 host = optarg;
@@ -60,20 +60,31 @@ int main(int argc, char* argv[]) {
             case 't':
                 timeout = std::stoi(optarg);
                 break;
+            case 'P':
+                udpPort = std::stoi(optarg);
+                beProxy = true;
+                break;
+            case 'B':
+                multiAddress = optarg;
+                beProxy = true;
+                break;
+            case 'T':
+                T = std::stoi(optarg);
+                beProxy = true;
+                break;
             default:
                 printUsage();
         }
     }
 
-    if(optind != argc || host.empty() || resource.empty() || port.empty() || timeout <= 0) {
+    if(host.empty() || resource.empty() || port.empty() || timeout <= 0) {
+        printUsage();
+    }
+    if(beProxy && (udpPort <= 0 || T <= 0)) {
         printUsage();
     }
 
-    Radio tmp(host, port, timeout);
+    Radio tmp = (beProxy) ? Radio(host, port, timeout, udpPort, multiAddress, T) : Radio(host, port, timeout);
     radio = &tmp;
     radio->play(resource, metadata);
-
-    //Speaker speaker;
-    //speaker.test("239.10.11.12", 11000);
-
 }

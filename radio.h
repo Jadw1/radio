@@ -10,6 +10,8 @@ constexpr size_t buffLen = 60000;
 class Radio {
 public:
     Radio(const std::string& address, const std::string& port, int timeout);
+    Radio(const std::string& address, const std::string& port, int timeout, int speakerPort, const std::string& multicast, int T);
+
     void play(const std::string& resource, bool metadata);
     void stopPlaying();
 
