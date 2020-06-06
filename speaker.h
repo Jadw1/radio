@@ -38,10 +38,8 @@ private:
     bool isMetadata;
 
     void print();
-    void listenBroadcast();
     void listenMulticast(const std::string& address);
     void handleSocketInput();
-
     void keepAlive(const struct sockaddr& addr);
     void addClient(const struct sockaddr& addr);
     void sendIam(const struct sockaddr& addr);

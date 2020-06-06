@@ -49,8 +49,10 @@ void Radio::play(const std::string& resource, bool metadata) {
                 size_t metaLen = buffer[0] * 16;
                 toMeta = metaint;
 
-                if(metaLen == 0)
+                if(metaLen == 0) {
                     continue;
+                }
+
                 readStream(metaLen);
                 speaker.play(buffer, 0, metaLen, true);
             }
