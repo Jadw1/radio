@@ -22,6 +22,7 @@ enum client_action {
     DO_DISCOVER,
     CONNECT,
     REFRESH,
+    CLOSE,
     NONE
 };
 
@@ -35,24 +36,24 @@ public:
     TelnetController(int port);
 
     client_action handleInput(int* p);
-    void printMenu(const std::vector<RadioProxy>& proxies);
-    void setSelected(int i);
+    void printMenu(const std::vector<RadioProxy>& proxies, int selected);
+    void setMetadata(const std::string& meta);
+    void stop();
 
 private:
-    int port;
     int sock, msg_sock;
     work_mode mode;
     struct pollfd fd, msg_fd;
-    int timeout = 10;
+    const int timeout = 10;
     int pos, maxPos;
-    int selected;
+    std::string metadata;
 
     client_action listenToConnect();
     client_action handle();
     void connectionLost();
 
     key_pressed parseInput(char* input, size_t len);
-    std::string constructMenu(const std::vector<RadioProxy>& proxies);
+    std::string constructMenu(const std::vector<RadioProxy>& proxies, int selected);
 };
 
 #endif //RADIO_TELNET_CONTROLLER_H

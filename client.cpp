@@ -11,7 +11,7 @@
 #include "protocol.h"
 
 RadioClient::RadioClient(std::string address, int port, int telnetPort, int timeout) : telnet(telnetPort) {
-    this->timeout = timeout;
+    this->timeout = timeout * 1000;
     sock = socket(AF_INET, SOCK_DGRAM, 0);
     if(sock < 0) {
         syserr("socket");
@@ -39,6 +39,7 @@ RadioClient::RadioClient(std::string address, int port, int telnetPort, int time
 
     doWork = true;
     selected = -1;
+    connected = false;
 }
 
 void RadioClient::setSocketOptions() {
@@ -59,41 +60,17 @@ void RadioClient::discoverProxies() {
     sendDiscover((struct sockaddr*)&discoverAddr, sizeof(discoverAddr));
 
     proxies.clear();
+    requireRefresh = true;
+    doDiscovery = true;
     bool search = true;
-
-    while(search) {
-        fd.revents = 0;
-        int ret = poll(&fd, 1, 1000);
-        if(ret < 0) {
-            syserr("poll");
-        }
-        else if(ret == 0) {
-            search = false;
-            continue;
-        }
-
-        RadioProxy proxy;
-        const size_t buffLen = UINT16_MAX + 4;
-        char buffor[buffLen];
-        socklen_t addrLen = sizeof(proxy.addr);
-
-        mutex.lock();
-        int recvLen = recvfrom(fd.fd, buffor, buffLen, 0, &proxy.addr, &addrLen);
-        mutex.unlock();
-        if(recvLen < 0)
-            syserr("recvfrom");
-
-        if(getProtocolType((uint16_t*)buffor, recvLen/2) != IAM)
-            continue;
-
-        proxy.name = getData(buffor, recvLen);
-        proxies.push_back(proxy);
-    }
+    selected = -1;
 }
 
 void RadioClient::work() {
     int p;
     while(doWork) {
+        requireRefresh = false;
+
         handleSockInput();
         client_action action = telnet.handleInput(&p);
         if(action == DO_DISCOVER) {
@@ -102,15 +79,21 @@ void RadioClient::work() {
         else if(action == CONNECT) {
             connectToProxy(p);
         }
-        else if(action == NONE) {
+        else if(action == CLOSE) {
+            stop();
             continue;
         }
-        telnet.printMenu(proxies);
+
+        if(requireRefresh || action == REFRESH)
+            telnet.printMenu(proxies, selected);
     }
 }
 
 void RadioClient::stop() {
     doWork = false;
+    discoverProxies();
+    telnet.stop();
+    close(sock);
 }
 
 constexpr int keepAliveInterval = 3500;
@@ -137,27 +120,34 @@ void sendKeepAlive(bool& work, int fd, std::mutex& mutex, struct sockaddr addr) 
 void RadioClient::connectToProxy(int i) {
     if(i >= proxies.size())
         return;
-    disconnectProxy();
+    disconnectProxy(false);
 
     selected = i;
     listenTo = proxies[selected].addr;
-    telnet.setSelected(selected);
+    connected = true;
 
     sendDiscover(&listenTo, sizeof(listenTo));
 
     keeperWork = true;
     keeper = std::thread(sendKeepAlive, std::ref(keeperWork), sock, std::ref(mutex), listenTo);
     timeoutStoper = 0;
+    requireRefresh = true;
 }
 
-void RadioClient::disconnectProxy() {
-    if(selected && !keeperWork)
+void RadioClient::disconnectProxy(bool remove) {
+    if(!connected && !keeperWork)
         return;
 
+    if(remove) {
+        proxies.erase(proxies.begin() + selected);
+    }
+
+    telnet.setMetadata("");
+    connected = false;
     keeperWork = false;
     keeper.join();
     selected = -1;
-    telnet.setSelected(selected);
+    requireRefresh = true;
 }
 
 void RadioClient::sendDiscover(struct sockaddr* sendAddress, socklen_t socklen) {
@@ -183,10 +173,16 @@ void RadioClient::handleSockInput() {
         syserr("poll");
     }
     else if(ret == 0) {
-        if(selected >= 0) {
+        if(connected) {
             timeoutStoper += waitFor;
-            if(timeoutStoper > timeout * 1000) {
-                //TODO: timeout!
+            if(timeoutStoper > timeout) {
+                disconnectProxy(true);
+            }
+        }
+        if(doDiscovery) {
+            discoveryStoper += waitFor;
+            if(discoveryStoper > discoveryTime) {
+                doDiscovery = false;
             }
         }
         return;
@@ -203,21 +199,45 @@ void RadioClient::handleSockInput() {
     if(recvLen < 0)
         syserr("recvfrom");
 
-    if(selected >= 0 && strncmp(income.sa_data, listenTo.sa_data,14) == 0) {
-        protocol_type type = getProtocolType((uint16_t*)buffor, recvLen/2);
+    protocol_type type = getProtocolType((uint16_t*)buffor, recvLen/2);
+    if(connected && strncmp(income.sa_data, listenTo.sa_data,14) == 0) {
         switch (type) {
             case AUDIO: {
+                timeoutStoper = 0;
                 std::string audio = getData(buffor, recvLen);
                 std::cout << audio;
             }
                 break;
             case METADATA:
+                timeoutStoper = 0;
+                telnet.setMetadata(getData(buffor, recvLen));
+                requireRefresh = true;
                 break;
             default:
                 break;
         }
     }
+    if(doDiscovery && type == IAM) {
+        RadioProxy proxy;
+        proxy.addr = income;
+        proxy.name = getData(buffor, recvLen);
+        discoveryStoper = 0;
 
+        addProxy(proxy);
+    }
+}
+
+void RadioClient::addProxy(RadioProxy &proxy) {
+    for(RadioProxy& p: proxies) {
+        if(strncmp(p.addr.sa_data, proxy.addr.sa_data, 14) == 0)
+            return;
+    }
+
+    if(connected && strncmp(listenTo.sa_data, proxy.addr.sa_data, 14) == 0) {
+        selected = proxies.size();
+    }
+    proxies.push_back(proxy);
+    requireRefresh = true;
 }
 
 

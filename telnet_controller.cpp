@@ -4,10 +4,8 @@
 #include "err.h"
 
 TelnetController::TelnetController(int port) {
-    this->port = port;
     pos = 0;
     maxPos = 2;
-    selected = -1;
 
     sock = socket(PF_INET, SOCK_STREAM, 0);
     if (sock < 0)
@@ -134,6 +132,8 @@ client_action TelnetController::handle() {
                 action = DO_DISCOVER;
             else if(pos > 0 && pos < maxPos - 1)
                 action = CONNECT;
+            else if(pos == maxPos - 1)
+                action = CLOSE;
             break;
         case OTHER:
             break;
@@ -164,7 +164,7 @@ key_pressed TelnetController::parseInput(char *input, size_t len) {
     return OTHER;
 }
 
-std::string TelnetController::constructMenu(const std::vector<RadioProxy>& proxies) {
+std::string TelnetController::constructMenu(const std::vector<RadioProxy>& proxies, int selected) {
     static const std::string clear = "\u001Bc";
     static const std::string newLine = "\r\n";
     static const std::string selector = "> ";
@@ -195,16 +195,20 @@ std::string TelnetController::constructMenu(const std::vector<RadioProxy>& proxi
 
         menu.append(newLine);
     }
+    if(!metadata.empty()) {
+        menu.append(metadata);
+        menu.append(newLine);
+    }
 
     return menu;
 }
 
-void TelnetController::printMenu(const std::vector<RadioProxy>& proxies) {
+void TelnetController::printMenu(const std::vector<RadioProxy>& proxies, int selected) {
     if(mode == LISTEN) {
         return;
     }
 
-    std::string response = constructMenu(proxies);
+    std::string response = constructMenu(proxies, selected);
     int write_len = write(msg_fd.fd, response.c_str(), response.length());
     if(write_len < 0) {
         syserr("write");
@@ -214,6 +218,11 @@ void TelnetController::printMenu(const std::vector<RadioProxy>& proxies) {
     }
 }
 
-void TelnetController::setSelected(int i) {
-    selected = i;
+void TelnetController::setMetadata(const std::string &meta) {
+    metadata = meta;
+}
+
+void TelnetController::stop() {
+    close(sock);
+    close(msg_sock);
 }

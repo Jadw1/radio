@@ -4,7 +4,6 @@
 #include <cstring>
 #include <signal.h>
 #include "err.h"
-#include <climits>
 
 Radio* radio = nullptr;
 

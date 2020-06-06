@@ -22,15 +22,14 @@ private:
     TelnetController telnet;
     int sock;
     struct pollfd fd;
-    int timeout;
+    int timeout, timeoutStoper, discoveryStoper, discoveryTime = 1000;
     struct sockaddr_in discoverAddr;
-    bool doWork;
+    bool doWork, requireRefresh, doDiscovery;
     std::vector<RadioProxy> proxies;
     int selected;
-    int timeoutStoper;
 
     std::thread keeper;
-    bool keeperWork;
+    bool keeperWork, connected;
     std::mutex mutex;
     struct sockaddr listenTo;
 
@@ -38,8 +37,9 @@ private:
     void setSocketOptions();
     void discoverProxies();
     void connectToProxy(int i);
-    void disconnectProxy();
+    void disconnectProxy(bool remove);
     void handleSockInput();
+    void addProxy(RadioProxy& proxy);
 };
 
 #endif //RADIO_CLIENT_H
