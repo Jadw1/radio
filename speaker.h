@@ -38,7 +38,6 @@ private:
     bool isMetadata;
 
     void print();
-    void listenBroadcast();
     void listenMulticast(const std::string& address);
     void handleSocketInput();
 

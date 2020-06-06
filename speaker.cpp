@@ -31,7 +31,6 @@ void Speaker::connect(int port, int timeout, std::string address) {
 
     if(!address.empty()) {
         listenMulticast(address);
-        //listenBroadcast();
     }
 
     struct sockaddr_in local_address;
@@ -44,14 +43,6 @@ void Speaker::connect(int port, int timeout, std::string address) {
     fd.fd = sock;
     fd.events = POLLIN;
     asProxy = true;
-}
-
-void Speaker::listenBroadcast() {
-    int optval = 1;
-
-    if(setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (void*)&optval, sizeof(optval)) < 0) {
-        syserr("setsockopt");
-    }
 }
 
 void Speaker::listenMulticast(const std::string &address) {
