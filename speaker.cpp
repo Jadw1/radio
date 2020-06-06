@@ -83,7 +83,12 @@ void Speaker::work() {
 
         std::string msg;
         char header[4];
-        setHeader((uint16_t*)&header, 2, (isMetadata) ? METADATA : AUDIO, (uint16_t)buffer.size());
+        if(isMetadata) {
+            setHeader((uint16_t*)&header, 2, METADATA, (uint16_t)buffer.size());
+        }
+        else {
+            setHeader((uint16_t*)&header, 2, AUDIO, (uint16_t)buffer.size());
+        }
         msg.append(header, 4);
         msg.append(buffer);
 
