@@ -178,12 +178,7 @@ void RadioClient::handleSockInput() {
                 disconnectProxy(true);
             }
         }
-        if(doDiscovery) {
-            discoveryStoper += waitFor;
-            if(discoveryStoper > discoveryTime) {
-                doDiscovery = false;
-            }
-        }
+
         return;
     }
 
@@ -199,7 +194,14 @@ void RadioClient::handleSockInput() {
         syserr("recvfrom");
 
     protocol_type type = getProtocolType((uint16_t*)buffor, recvLen/2);
-    if(connected && strncmp(income.sa_data, listenTo.sa_data,14) == 0) {
+    if(doDiscovery && type == IAM) {
+        RadioProxy proxy;
+        proxy.addr = income;
+        proxy.name = getData(buffor, recvLen);
+
+        addProxy(proxy);
+    }
+    else if(connected && strncmp(income.sa_data, listenTo.sa_data,14) == 0) {
         switch (type) {
             case AUDIO: {
                 timeoutStoper = 0;
@@ -215,14 +217,6 @@ void RadioClient::handleSockInput() {
             default:
                 break;
         }
-    }
-    if(doDiscovery && type == IAM) {
-        RadioProxy proxy;
-        proxy.addr = income;
-        proxy.name = getData(buffor, recvLen);
-        discoveryStoper = 0;
-
-        addProxy(proxy);
     }
 }
 

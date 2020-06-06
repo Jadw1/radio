@@ -22,7 +22,7 @@ private:
     TelnetController telnet;
     int sock;
     struct pollfd fd;
-    int timeout, timeoutStoper, discoveryStoper, discoveryTime = 1000;
+    int timeout, timeoutStoper;
     struct sockaddr_in discoverAddr;
     bool doWork, requireRefresh, doDiscovery;
     std::vector<RadioProxy> proxies;
